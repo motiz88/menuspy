@@ -1,8 +1,8 @@
-/*! MenuSpy v1.0.0 (Nov 29 2016) - http://leocs.me/menuspy/ - Copyright (c) 2016 Leonardo Santos; MIT License */
+/*! MenuSpy v1.0.1 (Apr 04 2017) - http://leocs.me/menuspy/ - Copyright (c) 2017 Leonardo Santos; MIT License */
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
-  typeof define === 'function' && define.amd ? define(factory) :
-  (global.MenuSpy = factory());
+	typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+	typeof define === 'function' && define.amd ? define(factory) :
+	(global.MenuSpy = factory());
 }(this, (function () { 'use strict';
 
 var utils = {
@@ -88,9 +88,13 @@ var MenuSpy = function MenuSpy(element, options) {
   this.assignValues();
   window.addEventListener('resize', utils.debounce(function () { return this$1.assignValues(); }));
 
-  this.debouncedHashFn = utils.debounce(function () {
+  this.debouncedHashFn = utils.debounce(function (state, push) {
     if (history.replaceState) {
-      history.replaceState(null, null, ("#" + (this$1.lastId)));
+      if (push) {
+        history.pushState(state, null, ("#" + (this$1.lastId)));
+      } else {
+        history.replaceState(state, null, ("#" + (this$1.lastId)));
+      }
     } else {
       var st = utils.scrollTop();
       window.location.hash = this$1.lastId;
@@ -111,13 +115,13 @@ MenuSpy.prototype.assignValues = function assignValues () {
 
 MenuSpy.prototype.cacheItems = function cacheItems () {
   this.scrollItems = this.menuItems.map(function (a) {
-    var elm = document.querySelector(a.getAttribute('href'));
+    var elm = document.getElementById(a.getAttribute('href').slice(1));
     if (elm) {
       var offset = utils.offset(elm).top;
       return { elm: elm, offset: offset };
-    } else {
-      console.warn('MenuSpy warning: %s not found on page.', a.href);
     }
+    console.warn('MenuSpy warning: %s not found on page.', a.href); // eslint-disable-line no-console
+    return undefined;
   });
   this.scrollItems = this.scrollItems.filter( Boolean );
 };
@@ -147,11 +151,21 @@ MenuSpy.prototype.activateItem = function activateItem (inViewElm) {
       if (item.getAttribute('href') === ("#" + id)) {
         utils.addClass(item.parentNode, activeClass);
 
+        var state = null;
         if (typeof callback === 'function') {
-          callback.call(this$1, item, inViewElm);
+          state = callback.call(this$1, item, inViewElm);
+          if (state === false) {
+            return;
+          }
         }
 
-        this$1.debouncedHashFn();
+        var data = state;
+        var push = false;
+        if (state && state.data) {
+          data = state.data;
+          push = state.push;
+        }
+        this$1.debouncedHashFn(data, push);
       }
     });
   }

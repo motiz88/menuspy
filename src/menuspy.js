@@ -20,9 +20,13 @@ class MenuSpy {
     this.assignValues();
     window.addEventListener('resize', utils.debounce(() => this.assignValues()));
 
-    this.debouncedHashFn = utils.debounce(() => {
+    this.debouncedHashFn = utils.debounce((state, push) => {
       if (history.replaceState) {
-        history.replaceState(null, null, `#${this.lastId}`);
+        if (push) {
+          history.pushState(state, null, `#${this.lastId}`);
+        } else {
+          history.replaceState(state, null, `#${this.lastId}`);
+        }
       } else {
         const st = utils.scrollTop();
         window.location.hash = this.lastId;
@@ -47,9 +51,9 @@ class MenuSpy {
       if (elm) {
         const offset = utils.offset(elm).top;
         return { elm, offset };
-      } else {
-        console.warn('MenuSpy warning: %s not found on page.', a.href);
       }
+      console.warn('MenuSpy warning: %s not found on page.', a.href); // eslint-disable-line no-console
+      return undefined;
     });
     this.scrollItems = this.scrollItems.filter( Boolean );
   }
@@ -77,11 +81,21 @@ class MenuSpy {
         if (item.getAttribute('href') === `#${id}`) {
           utils.addClass(item.parentNode, activeClass);
 
+          let state = null;
           if (typeof callback === 'function') {
-            callback.call(this, item, inViewElm);
+            state = callback.call(this, item, inViewElm);
+            if (state === false) {
+              return;
+            }
           }
 
-          this.debouncedHashFn();
+          let data = state;
+          let push = false;
+          if (state && state.data) {
+            data = state.data;
+            push = state.push;
+          }
+          this.debouncedHashFn(data, push);
         }
       });
     }
